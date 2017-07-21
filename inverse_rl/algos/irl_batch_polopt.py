@@ -142,11 +142,7 @@ class IRLBatchPolopt(RLAlgorithm, metaclass=Hyperparametrized):
             for path in paths:
                 tot_rew += np.sum(path['rewards'])
                 path['rewards'] *= 0
-            logger.record_tabular('ZeroedAverageReward', tot_rew/float(len(paths)))
-            tot_rew = 0
-            for path in paths:
-                tot_rew += np.sum(path['rewards'])
-            logger.record_tabular('ZeroedRewardAfter', tot_rew/float(len(paths)))
+            logger.record_tabular('OriginalTaskAverageReturn', tot_rew/float(len(paths)))
 
         if self.irl_model_wt <=0:
             return paths
