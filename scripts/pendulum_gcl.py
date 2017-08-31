@@ -17,6 +17,7 @@ def main():
 
     irl_model = GCLDiscrim(env_spec=env.spec, expert_trajs=experts)
     policy = GaussianMLPPolicy(name='policy', env_spec=env.spec, hidden_sizes=(32, 32))
+
     algo = IRLTRPO(
         env=env,
         policy=policy,
@@ -35,6 +36,8 @@ def main():
 
     with rllab_logdir(algo=algo, dirname='data/pendulum_gcl'):
         with tf.Session():
+            # [Justin]
+            # Look at algos/irl_batch_polopt.py for the implementation of this method
             algo.train()
 
 if __name__ == "__main__":

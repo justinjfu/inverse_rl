@@ -497,9 +497,8 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
         self.score_dtau = score_dtau
         self.expert_trajs = expert_trajs
 
-        # build energy model
         with tf.variable_scope(name) as vs:
-            # Should be batch_size x T x dO/dU
+            # Should be Batch_Size x T x dO/dU
             self.obs_t = tf.placeholder(tf.float32, [None, None, self.dO], name='obs')
             self.act_t = tf.placeholder(tf.float32, [None, None, self.dU], name='act')
             self.traj_logprobs = tf.placeholder(tf.float32, [None, None], name='traj_probs')
@@ -512,14 +511,13 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
                 self.energy = discrim_arch(obs_act, **discrim_arch_args)
                 discrim_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vs2.name)
 
-            self.energy_timestep = self.energy 
             # Don't train separate log Z because we can't fully separate it from the energy function
             log_p_tau = discounted_reduce_sum(-self.energy, discount=discount, axis=1)
             log_q_tau = tf.reduce_sum(self.traj_logprobs, axis=1, keep_dims=True)
 
-            # numerical stability trick
+            # numerical stability trick for computing the output of the classifier (cross entropy loss)
             log_pq = tf.reduce_logsumexp([log_p_tau, log_q_tau], axis=0)
-            self.d_tau = tf.exp(log_p_tau-log_pq)
+            self.d_tau = tf.exp(log_p_tau-log_pq)  # d(tau) = discriminator output
             cent_loss = -tf.reduce_mean(self.labels*(log_p_tau-log_pq) + (1-self.labels)*(log_q_tau-log_pq))
 
             if l2_reg > 0:
@@ -573,7 +571,7 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
                 print('\tLoss:%f' % mean_loss)
 
         if logger:
-            energy, dtau = tf.get_default_session().run([self.energy_timestep, self.d_tau],
+            energy, dtau = tf.get_default_session().run([self.energy, self.d_tau],
                                                         feed_dict={self.act_t: acts, self.obs_t: obs,
                                                                    self.traj_logprobs: path_probs})
             #logger.record_tabular('GCLLogZ', logZ)
@@ -583,7 +581,7 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
             logger.record_tabular('GCLMedianLogQtau', np.median(path_probs))
             logger.record_tabular('GCLAverageDtau', np.mean(dtau))
 
-            energy, dtau = tf.get_default_session().run([self.energy_timestep, self.d_tau],
+            energy, dtau = tf.get_default_session().run([self.energy, self.d_tau],
                                                         feed_dict={self.act_t: expert_acts, self.obs_t: expert_obs,
                                                                    self.traj_logprobs: expert_probs})
             logger.record_tabular('GCLAverageExpertEnergy', np.mean(energy))

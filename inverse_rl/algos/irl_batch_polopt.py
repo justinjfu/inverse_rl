@@ -138,6 +138,7 @@ class IRLBatchPolopt(RLAlgorithm, metaclass=Hyperparametrized):
 
     def compute_irl(self, paths, itr=0):
         if self.no_reward:
+            # zero out original rewards
             tot_rew = 0
             for path in paths:
                 tot_rew += np.sum(path['rewards'])
@@ -145,31 +146,29 @@ class IRLBatchPolopt(RLAlgorithm, metaclass=Hyperparametrized):
             logger.record_tabular('OriginalTaskAverageReturn', tot_rew/float(len(paths)))
 
         if self.irl_model_wt <=0:
+            # don't bother updating the cost if IRL models are not being used
             return paths
 
         if self.train_irl:
             max_itrs = self.discrim_train_itrs
             lr=1e-3
+            # Update the learned cost function
             mean_loss = self.irl_model.fit(paths, policy=self.policy, itr=itr, max_itrs=max_itrs, lr=lr,
                                            logger=logger)
 
             logger.record_tabular('IRLLoss', mean_loss)
             self.__irl_params = self.irl_model.get_params()
 
+        # Evaluate the cost function on the current paths. Then insert this new cost function
+        # as the new reward function.
         probs = self.irl_model.eval(paths, gamma=self.discount, itr=itr)
 
         logger.record_tabular('IRLRewardMean', np.mean(probs))
         logger.record_tabular('IRLRewardMax', np.max(probs))
         logger.record_tabular('IRLRewardMin', np.min(probs))
 
-
-        if self.irl_model.score_trajectories:
-            # TODO: should I add to reward here or after advantage computation?
-            for i, path in enumerate(paths):
-                path['rewards'][-1] += self.irl_model_wt * probs[i]
-        else:
-            for i, path in enumerate(paths):
-                path['rewards'] += self.irl_model_wt * probs[i]
+        for i, path in enumerate(paths):
+            path['rewards'] += self.irl_model_wt * probs[i]
         return paths
 
     def train(self):
@@ -182,23 +181,40 @@ class IRLBatchPolopt(RLAlgorithm, metaclass=Hyperparametrized):
         self.start_worker()
         start_time = time.time()
 
-        returns = []
         for itr in range(self.start_itr, self.n_itr):
             itr_start_time = time.time()
             with logger.prefix('itr #%d | ' % itr):
                 logger.log("Obtaining samples...")
+
+                # [Justin]
+                # self.obtain_samples step runs the policy and returns a list of "paths"
+                # Each path is a dictionary mainly containing:
+                #   'observations': A T x dim_observation matrix of obs for each timestep
+                #   'actions': A T x dim_action matrix
+                #   'rewards': A T x 1 matrix of rewards received
                 paths = self.obtain_samples(itr)
 
                 logger.log("Processing samples...")
-                paths = self.compute_irl(paths, itr=itr)
-                returns.append(self.log_avg_returns(paths))
-                samples_data = self.process_samples(itr, paths)
 
+                # [Justin]
+                # self.compute_irl does several things:
+                # 1) It updates the cost function
+                # 2) It zeros out the original rewards inside paths (if zero_reward = True)
+                # 3) It adds the newly trained cost function in place of the old rewards
+                paths = self.compute_irl(paths, itr=itr)
+
+                # [Justin]
+                # The following code is related to updating the policy to maximize the new rewards
+                # (You probably won't need to change any of this)
+                samples_data = self.process_samples(itr, paths)
                 logger.log("Logging diagnostics...")
                 self.log_diagnostics(paths)
                 logger.log("Optimizing policy...")
                 self.optimize_policy(itr, samples_data)
                 logger.log("Saving snapshot...")
+
+                # [Justin]
+                # The following code is for logging
                 params = self.get_itr_snapshot(itr, samples_data)  # , **kwargs)
                 if self.store_paths:
                     params["paths"] = samples_data["paths"]
