@@ -86,15 +86,17 @@ class IRLNPO(IRLBatchPolopt):
             else:
                 raise NotImplementedError()
             ent = tf.stop_gradient(ent)
-            advantage_var += self.pol_ent_wt*ent
+            adv = advantage_var + self.pol_ent_wt*ent
+        else:
+            adv = advantage_var
 
 
         if is_recurrent:
             mean_kl = tf.reduce_sum(kl * valid_var) / tf.reduce_sum(valid_var)
-            surr_loss = - tf.reduce_sum(lr * advantage_var * valid_var) / tf.reduce_sum(valid_var)
+            surr_loss = - tf.reduce_sum(lr * adv * valid_var) / tf.reduce_sum(valid_var)
         else:
             mean_kl = tf.reduce_mean(kl)
-            surr_loss = - tf.reduce_mean(lr * advantage_var)
+            surr_loss = - tf.reduce_mean(lr * adv)
 
         input_list += state_info_vars_list + old_dist_info_vars_list
         if is_recurrent:
