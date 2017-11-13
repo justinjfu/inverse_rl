@@ -5,6 +5,7 @@ Implementations for imitation learning / IRL algorithms in RLLAB
 Contains:
 - GAIL (https://arxiv.org/abs/1606.03476/pdf)
 - Guided Cost Learning (https://arxiv.org/pdf/1611.03852.pdf)
+- Tabular MaxEnt IRL (https://www.aaai.org/Papers/AAAI/2008/AAAI08-227.pdf)
 
 Setup
 ---
