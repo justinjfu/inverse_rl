@@ -191,13 +191,9 @@ class GAIL(SingleTimestepIRL):
         return self.unpack(scores, paths)
 
 
-class GCLDiscrim(SingleTimestepIRL):
+class AIRL(SingleTimestepIRL):
     """
-    Guided cost learning, discriminator formulation
-    See https://arxiv.org/pdf/1611.03852.pdf
-
-    This version consumes single timesteps. 
-    It is not technically the same as GCL, which operates on whole trajectories.
+    Similar to GAN_GCL except operates on single timesteps.
     """
     def __init__(self, env_spec, expert_trajs=None,
                  discrim_arch=relu_net,
@@ -205,7 +201,7 @@ class GCLDiscrim(SingleTimestepIRL):
                  l2_reg=0,
                  discount=1.0,
                  name='gcl'):
-        super(GCLDiscrim, self).__init__()
+        super(AIRL, self).__init__()
         self.dO = env_spec.observation_space.flat_dim
         self.dU = env_spec.action_space.flat_dim
 
@@ -285,17 +281,15 @@ class GCLDiscrim(SingleTimestepIRL):
         if logger:
             energy = tf.get_default_session().run(self.energy,
                                                         feed_dict={self.act_t: acts, self.obs_t: obs})
-            logger.record_tabular('GCLAverageEnergy', np.mean(energy))
-            #logger.record_tabular('GCLAverageLogPtau', np.mean(-energy-logZ))
-            logger.record_tabular('GCLAverageLogQtau', np.mean(path_probs))
-            logger.record_tabular('GCLMedianLogQtau', np.median(path_probs))
+            logger.record_tabular('IRLAverageEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageLogQtau', np.mean(path_probs))
+            logger.record_tabular('IRLMedianLogQtau', np.median(path_probs))
 
             energy = tf.get_default_session().run(self.energy,
                                                         feed_dict={self.act_t: expert_acts, self.obs_t: expert_obs})
-            logger.record_tabular('GCLAverageExpertEnergy', np.mean(energy))
-            #logger.record_tabular('GCLAverageExpertLogPtau', np.mean(-energy-logZ))
-            logger.record_tabular('GCLAverageExpertLogQtau', np.mean(expert_probs))
-            logger.record_tabular('GCLMedianExpertLogQtau', np.median(expert_probs))
+            logger.record_tabular('IRLAverageExpertEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageExpertLogQtau', np.mean(expert_probs))
+            logger.record_tabular('IRLMedianExpertLogQtau', np.median(expert_probs))
         return mean_loss
 
 
@@ -320,10 +314,11 @@ class GCLDiscrim(SingleTimestepIRL):
         return self._compute_path_probs(expert_paths, insert=insert)
 
 
-class GCLDiscrimDiscrete(SingleTimestepIRL):
+class AIRLDiscrete(SingleTimestepIRL):
     """
-    GCL, single timestep version, with explicit calculation of 
-    normalization constant log Z(s) for discrete domains.
+    Experimental 
+
+    Explicit calculation of normalization constant log Z(s) for discrete domains.
     """
     def __init__(self, env_spec, expert_trajs=None,
                  discrim_arch=relu_net,
@@ -331,7 +326,7 @@ class GCLDiscrimDiscrete(SingleTimestepIRL):
                  score_using_discrim=False,
                  l2_reg=0,
                  name='gcl'):
-        super(GCLDiscrimDiscrete, self).__init__()
+        super(AIRLDiscrete, self).__init__()
         self.dO = env_spec.observation_space.flat_dim
         self.dU = env_spec.action_space.flat_dim
         self.score_using_discrim = score_using_discrim
@@ -414,21 +409,21 @@ class GCLDiscrimDiscrete(SingleTimestepIRL):
             energy, logZ, dtau = tf.get_default_session().run([self.energy, self.value_fn, self.d_tau],
                                                         feed_dict={self.act_t: acts, self.obs_t: obs,
                                                                    self.lprobs: np.expand_dims(path_probs, axis=1)})
-            logger.record_tabular('GCLLogZ', np.mean(logZ))
-            logger.record_tabular('GCLAverageEnergy', np.mean(energy))
-            logger.record_tabular('GCLAverageLogPtau', np.mean(-energy-logZ))
-            logger.record_tabular('GCLAverageLogQtau', np.mean(path_probs))
-            logger.record_tabular('GCLMedianLogQtau', np.median(path_probs))
-            logger.record_tabular('GCLAverageDtau', np.mean(dtau))
+            logger.record_tabular('IRLLogZ', np.mean(logZ))
+            logger.record_tabular('IRLAverageEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageLogPtau', np.mean(-energy-logZ))
+            logger.record_tabular('IRLAverageLogQtau', np.mean(path_probs))
+            logger.record_tabular('IRLMedianLogQtau', np.median(path_probs))
+            logger.record_tabular('IRLAverageDtau', np.mean(dtau))
 
             energy, logZ, dtau = tf.get_default_session().run([self.energy, self.value_fn, self.d_tau],
                                                         feed_dict={self.act_t: expert_acts, self.obs_t: expert_obs,
                                                                    self.lprobs: np.expand_dims(expert_probs, axis=1)})
-            logger.record_tabular('GCLAverageExpertEnergy', np.mean(energy))
-            logger.record_tabular('GCLAverageExpertLogPtau', np.mean(-energy-logZ))
-            logger.record_tabular('GCLAverageExpertLogQtau', np.mean(expert_probs))
-            logger.record_tabular('GCLMedianExpertLogQtau', np.median(expert_probs))
-            logger.record_tabular('GCLAverageExpertDtau', np.mean(dtau))
+            logger.record_tabular('IRLAverageExpertEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageExpertLogPtau', np.mean(-energy-logZ))
+            logger.record_tabular('IRLAverageExpertLogQtau', np.mean(expert_probs))
+            logger.record_tabular('IRLMedianExpertLogQtau', np.median(expert_probs))
+            logger.record_tabular('IRLAverageExpertDtau', np.mean(dtau))
         return mean_loss
 
 
@@ -476,12 +471,10 @@ class GCLDiscrimDiscrete(SingleTimestepIRL):
         return self._compute_path_probs(expert_paths, insert=insert)
 
 
-class GCLDiscrimTrajectory(TrajectoryIRL):
+class GAN_GCL(TrajectoryIRL):
     """
-    Guided cost learning, discriminator formulation with learned partition function
+    Guided cost learning, GAN formulation with learned partition function
     See https://arxiv.org/pdf/1611.03852.pdf
-
-    This version is proper GCL over entire trajectories.
     """
     def __init__(self, env_spec, expert_trajs=None,
                  discrim_arch=feedforward_energy,
@@ -491,7 +484,7 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
                  init_itrs = None,
                  score_dtau=False,
                  name='trajprior'):
-        super(GCLDiscrimTrajectory, self).__init__()
+        super(GAN_GCL, self).__init__()
         self.dO = env_spec.observation_space.flat_dim
         self.dU = env_spec.action_space.flat_dim
         self.score_dtau = score_dtau
@@ -576,21 +569,18 @@ class GCLDiscrimTrajectory(TrajectoryIRL):
             energy, dtau = tf.get_default_session().run([self.energy_timestep, self.d_tau],
                                                         feed_dict={self.act_t: acts, self.obs_t: obs,
                                                                    self.traj_logprobs: path_probs})
-            #logger.record_tabular('GCLLogZ', logZ)
-            logger.record_tabular('GCLAverageEnergy', np.mean(energy))
-            #logger.record_tabular('GCLAverageLogPtau', np.mean(-energy))
-            logger.record_tabular('GCLAverageLogQtau', np.mean(path_probs))
-            logger.record_tabular('GCLMedianLogQtau', np.median(path_probs))
-            logger.record_tabular('GCLAverageDtau', np.mean(dtau))
+            logger.record_tabular('IRLAverageEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageLogQtau', np.mean(path_probs))
+            logger.record_tabular('IRLMedianLogQtau', np.median(path_probs))
+            logger.record_tabular('IRLAverageDtau', np.mean(dtau))
 
             energy, dtau = tf.get_default_session().run([self.energy_timestep, self.d_tau],
                                                         feed_dict={self.act_t: expert_acts, self.obs_t: expert_obs,
                                                                    self.traj_logprobs: expert_probs})
-            logger.record_tabular('GCLAverageExpertEnergy', np.mean(energy))
-            #logger.record_tabular('GCLAverageExpertLogPtau', np.mean(-energy))
-            logger.record_tabular('GCLAverageExpertLogQtau', np.mean(expert_probs))
-            logger.record_tabular('GCLMedianExpertLogQtau', np.median(expert_probs))
-            logger.record_tabular('GCLAverageExpertDtau', np.mean(dtau))
+            logger.record_tabular('IRLAverageExpertEnergy', np.mean(energy))
+            logger.record_tabular('IRLAverageExpertLogQtau', np.mean(expert_probs))
+            logger.record_tabular('IRLMedianExpertLogQtau', np.median(expert_probs))
+            logger.record_tabular('IRLAverageExpertDtau', np.mean(dtau))
         return mean_loss
 
     def eval(self, paths, **kwargs):
