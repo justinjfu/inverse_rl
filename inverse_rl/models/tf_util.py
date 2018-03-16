@@ -32,3 +32,21 @@ def softplus_layer(X, dout, name):
 
 def tanh_layer(X, dout, name):
     return tf.nn.tanh(linear(X, dout, name))
+
+def get_session_config():
+    session_config = tf.ConfigProto()
+    session_config.gpu_options.allow_growth = True
+    #session_config.gpu_options.per_process_gpu_memory_fraction = 0.2
+    return session_config
+
+
+def load_prior_params(pkl_fname):
+    import joblib
+    with tf.Session(config=get_session_config()):
+        params = joblib.load(pkl_fname)
+    tf.reset_default_graph()
+    #joblib.dump(params, file_name, compress=3)
+    params = params['irl_params']
+    #print(params)
+    assert params is not None
+    return params

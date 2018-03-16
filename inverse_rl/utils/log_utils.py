@@ -76,3 +76,12 @@ def load_experts(fname, max_files=float('inf'), min_return=None):
 def load_latest_experts(logdir, n=5, min_return=None):
     return load_experts(get_expert_fnames(logdir, n=n), min_return=min_return)
 
+
+def load_latest_experts_multiple_runs(logdir, n=5):
+    paths = []
+    for i, dirname in enumerate(os.listdir(logdir)):
+        dirname = os.path.join(logdir, dirname)
+        if os.path.isdir(dirname):
+            print('Loading experts from %s' % dirname)
+            paths.extend(load_latest_experts(dirname, n=n))
+    return paths

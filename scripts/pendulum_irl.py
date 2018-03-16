@@ -7,7 +7,7 @@ from rllab.envs.gym_env import GymEnv
 
 
 from inverse_rl.algos.irl_trpo import IRLTRPO
-from inverse_rl.models.imitation_learning import AIRL
+from inverse_rl.models.imitation_learning import AIRLStateAction
 from inverse_rl.utils.log_utils import rllab_logdir, load_latest_experts
 
 def main():
@@ -15,7 +15,7 @@ def main():
     
     experts = load_latest_experts('data/pendulum', n=5)
 
-    irl_model = AIRL(env_spec=env.spec, expert_trajs=experts)
+    irl_model = AIRLStateAction(env_spec=env.spec, expert_trajs=experts)
     policy = GaussianMLPPolicy(name='policy', env_spec=env.spec, hidden_sizes=(32, 32))
     algo = IRLTRPO(
         env=env,
